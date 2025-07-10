@@ -1,0 +1,1091 @@
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/Robojini/Tuturial_UI_Library/main/UI_Template_1"))()
+
+local Window = Library.CreateLib("PIGIS V1.1", "RJTheme5")
+
+local Tab = Window:NewTab("🎇Visuals🎇")
+
+local Section = Tab:NewSection("👓Esp👓")
+
+-- Переключатель
+Section:NewToggle("💡HighLight💡", "1  ", function(state)
+    if state then
+        -- HighlightESP.lua
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+local boxColor = Color3.fromRGB(0, 255, 0)
+
+local function setupHighlight(player)
+    if player == localPlayer then return end
+
+    local function onCharacterAdded(character)
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "ESP_Highlight"
+        highlight.Adornee = character
+        highlight.FillColor = boxColor
+        highlight.OutlineColor = Color3.new(0, 0, 0)
+        highlight.FillTransparency = 0.5
+        highlight.OutlineTransparency = 0
+        highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        highlight.Parent = character
+    end
+
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacterAdded)
+end
+
+Players.PlayerAdded:Connect(setupHighlight)
+for _, player in ipairs(Players:GetPlayers()) do
+    setupHighlight(player)
+end
+    else
+        local Players = game:GetService("Players")
+
+-- Удаляем все существующие Highlight-ы с именем "ESP_Highlight"
+for _, player in ipairs(Players:GetPlayers()) do
+    if player.Character then
+        local highlight = player.Character:FindFirstChild("ESP_Highlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end
+end
+
+-- Отключаем новые Highlight-ы при появлении персонажа
+-- Для этого перехватим PlayerAdded и CharacterAdded и не делать ничего
+-- Или можно "перебить" функцию setupHighlight пустой, но это сложно.
+
+-- Проще просто отключить Highlight для новых персонажей:
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function(character)
+        local highlight = character:FindFirstChild("ESP_Highlight")
+        if highlight then
+            highlight:Destroy()
+        end
+    end)
+end)
+
+    end
+end)
+
+-- Переключатель
+Section:NewToggle("🔲Boxes🔲", "1", function(state)
+    if state then
+-- BoxESP.lua
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local boxColor = Color3.fromRGB(0, 255, 0)
+local espData = {}
+
+local updateInterval = 0.05
+local accumulator = 0
+local MAX_DISTANCE = 2000
+
+local function createESP(player)
+    if player == localPlayer then return end
+
+    local function onCharacterAdded(character)
+        local box = Drawing.new("Square")
+        box.Color = boxColor
+        box.Thickness = 1.5
+        box.Transparency = 1
+        box.Filled = false
+        box.Visible = false
+
+        local name = Drawing.new("Text")
+        name.Color = boxColor
+        name.Size = 14
+        name.Center = true
+        name.Outline = true
+        name.Font = 2
+        name.Visible = false
+        name.Text = player.Name
+
+        espData[player] = {
+            box = box,
+            name = name,
+            character = character
+        }
+    end
+
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacterAdded)
+end
+
+local function removeESP(player)
+    local data = espData[player]
+    if data then
+        if data.box then data.box:Remove() end
+        if data.name then data.name:Remove() end
+        espData[player] = nil
+    end
+end
+
+-- ✅ Сохраняем в глобальные переменные
+_G.BoxESPData = espData
+_G.BoxESPHBConnection = RunService.Heartbeat:Connect(function(dt)
+    accumulator = accumulator + dt
+    if accumulator < updateInterval then return end
+    accumulator = 0
+
+    for player, data in pairs(espData) do
+        local char = data.character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local head = char and char:FindFirstChild("Head")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and head and hum and hum.Health > 0 then
+            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                data.box.Visible = false
+                data.name.Visible = false
+                continue
+            end
+
+            local dist = (hrp.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if dist > MAX_DISTANCE then
+                data.box.Visible = false
+                data.name.Visible = false
+                continue
+            end
+
+            local headPos, headOnScreen = camera:WorldToViewportPoint(head.Position)
+            local rootPos, rootOnScreen = camera:WorldToViewportPoint(hrp.Position - Vector3.new(0, 3, 0))
+
+            if headOnScreen and rootOnScreen then
+                local topY = headPos.Y
+                local bottomY = rootPos.Y
+                local height = math.abs(bottomY - topY)
+
+                local leftShoulder = char:FindFirstChild("LeftUpperArm") or char:FindFirstChild("LeftLowerArm")
+                local rightShoulder = char:FindFirstChild("RightUpperArm") or char:FindFirstChild("RightLowerArm")
+
+                local leftPos, leftOnScreen = nil, false
+                local rightPos, rightOnScreen = nil, false
+
+                if leftShoulder and rightShoulder then
+                    leftPos, leftOnScreen = camera:WorldToViewportPoint(leftShoulder.Position)
+                    rightPos, rightOnScreen = camera:WorldToViewportPoint(rightShoulder.Position)
+                end
+
+                local width = 40
+                if leftOnScreen and rightOnScreen then
+                    width = math.abs(rightPos.X - leftPos.X) * 1.2
+                end
+
+                data.box.Visible = true
+                data.box.Size = Vector2.new(width, height)
+                data.box.Position = Vector2.new(headPos.X - width / 2, topY)
+
+                data.name.Visible = true
+                data.name.Text = player.Name
+                data.name.Position = Vector2.new(headPos.X, topY - 15)
+            else
+                data.box.Visible = false
+                data.name.Visible = false
+            end
+        else
+            data.box.Visible = false
+            data.name.Visible = false
+        end
+    end
+end)
+
+-- Инициализация
+Players.PlayerAdded:Connect(createESP)
+Players.PlayerRemoving:Connect(removeESP)
+for _, player in ipairs(Players:GetPlayers()) do
+    createESP(player)
+end
+
+    else
+ local Players = game:GetService("Players")
+
+-- Удалить все боксы и имена
+for _, player in pairs(Players:GetPlayers()) do
+    local data = _G.BoxESPData and _G.BoxESPData[player]
+    if data then
+        if data.box then data.box:Remove() end
+        if data.name then data.name:Remove() end
+    end
+end
+
+-- Отключить Heartbeat
+if _G.BoxESPHBConnection then
+    _G.BoxESPHBConnection:Disconnect()
+    _G.BoxESPHBConnection = nil
+end
+
+_G.BoxESPData = nil
+
+print("BoxESP выключен.")
+
+    end
+end)
+-- Переключатель
+Section:NewToggle("➖Tracers➖", "1", function(state)
+    if state then
+-- TracerESP.lua
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local localPlayer = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local tracerColor = Color3.fromRGB(255, 255, 0)
+local MAX_DISTANCE = 2000
+local updateInterval = 0.05
+local accumulator = 0
+
+local tracerData = {}
+
+local function createTracer(player)
+    if player == localPlayer then return end
+
+    local function onCharacterAdded(character)
+        local line = Drawing.new("Line")
+        line.Color = tracerColor
+        line.Thickness = 1.5
+        line.Transparency = 1
+        line.Visible = false
+
+        tracerData[player] = {
+            line = line,
+            character = character
+        }
+    end
+
+    if player.Character then
+        onCharacterAdded(player.Character)
+    end
+    player.CharacterAdded:Connect(onCharacterAdded)
+end
+
+local function removeTracer(player)
+    local data = tracerData[player]
+    if data and data.line then
+        data.line:Remove()
+        tracerData[player] = nil
+    end
+end
+
+-- Глобальные переменные для выключения
+_G.TracerESPData = tracerData
+_G.TracerESPHBConnection = RunService.Heartbeat:Connect(function(dt)
+    accumulator = accumulator + dt
+    if accumulator < updateInterval then return end
+    accumulator = 0
+
+    for player, data in pairs(tracerData) do
+        local char = data.character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if hrp and hum and hum.Health > 0 and camera then
+            if not localPlayer.Character or not localPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                data.line.Visible = false
+                continue
+            end
+
+            local dist = (hrp.Position - localPlayer.Character.HumanoidRootPart.Position).Magnitude
+            if dist > MAX_DISTANCE then
+                data.line.Visible = false
+                continue
+            end
+
+            local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+            if onScreen then
+                data.line.Visible = true
+                data.line.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y)
+                data.line.To = Vector2.new(screenPos.X, screenPos.Y)
+            else
+                data.line.Visible = false
+            end
+        else
+            data.line.Visible = false
+        end
+    end
+end)
+
+-- Инициализация
+Players.PlayerAdded:Connect(createTracer)
+Players.PlayerRemoving:Connect(removeTracer)
+for _, player in ipairs(Players:GetPlayers()) do
+    createTracer(player)
+end
+
+    else
+
+local Players = game:GetService("Players")
+
+for _, player in pairs(Players:GetPlayers()) do
+    local data = _G.TracerESPData and _G.TracerESPData[player]
+    if data and data.line then
+        data.line.Visible = false
+        data.line:Remove()
+    end
+end
+
+if _G.TracerESPHBConnection then
+    _G.TracerESPHBConnection:Disconnect()
+    _G.TracerESPHBConnection = nil
+end
+
+_G.TracerESPData = nil
+
+print("TracerESP выключен.")
+
+    end
+end)
+
+Section:NewToggle("🎒InventoryViewer🎒", "1  ", function(state)
+    if state then
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+
+-- GUI создание
+local function createInventoryGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "InventoryViewer"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 260, 0, 210)
+    frame.Position = UDim2.new(1, -270, 0.5, -105)
+    frame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.Parent = screenGui
+
+    local title = Instance.new("TextLabel")
+    title.Text = "🎯 Target Inventory"
+    title.Size = UDim2.new(1, 0, 0, 30)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.new(1, 1, 1)
+    title.Font = Enum.Font.SourceSansBold
+    title.TextSize = 20
+    title.Parent = frame
+
+    local list = Instance.new("TextLabel")
+    list.Name = "List"
+    list.Position = UDim2.new(0, 0, 0, 35)
+    list.Size = UDim2.new(1, 0, 1, -35)
+    list.BackgroundTransparency = 1
+    list.TextColor3 = Color3.new(1, 1, 1)
+    list.Font = Enum.Font.Code
+    list.TextXAlignment = Enum.TextXAlignment.Left
+    list.TextYAlignment = Enum.TextYAlignment.Top
+    list.TextWrapped = true
+    list.TextSize = 16
+    list.Text = "Наведи курсор на игрока..."
+    list.Parent = frame
+
+    return list
+end
+
+local listLabel = createInventoryGUI()
+
+-- Получение одежды из описания
+local function getItemsFromDescription(desc)
+    return {
+        desc.Shirt,
+        desc.Pants,
+        desc.GraphicTShirt,
+        desc.BackAccessory,
+        desc.FrontAccessory,
+        desc.HatAccessory,
+        desc.HairAccessory,
+        desc.FaceAccessory,
+        desc.NeckAccessory,
+        desc.ShouldersAccessory,
+        desc.WaistAccessory,
+    }
+end
+
+-- Получить надетые предметы, отличающиеся от аватара
+local function getCustomWornItems(player)
+    local worn = {}
+    local success, defaultDesc = pcall(function()
+        return Players:GetHumanoidDescriptionFromUserIdAsync(player.UserId)
+    end)
+
+    local char = player.Character
+    if not char or not success then return worn end
+
+    local currentDesc = char:FindFirstChildOfClass("Humanoid") and char.Humanoid:GetAppliedDescription()
+    if not currentDesc then return worn end
+
+    local defaultItems = getItemsFromDescription(defaultDesc)
+    local currentItems = getItemsFromDescription(currentDesc)
+
+    for i, id in ipairs(currentItems) do
+        if id ~= 0 and id ~= defaultItems[i] then
+            table.insert(worn, tostring(id))
+        end
+    end
+
+    for _, item in ipairs(char:GetChildren()) do
+        if item:IsA("Accessory") then
+            table.insert(worn, item.Name)
+        end
+    end
+
+    return worn
+end
+
+-- Получение игрока, на которого наведен курсор
+local function getTargetPlayerUnderMouse()
+    local target = Mouse.Target
+    if target then
+        local model = target:FindFirstAncestorOfClass("Model")
+        local player = model and Players:GetPlayerFromCharacter(model)
+        if player and player ~= LocalPlayer then
+            return player
+        end
+    end
+    return nil
+end
+
+-- Обновление GUI
+_G.InventoryViewerConnection = RunService.RenderStepped:Connect(function()
+    local targetPlayer = getTargetPlayerUnderMouse()
+    if not targetPlayer then
+        listLabel.Text = "Наведи курсор на игрока..."
+        return
+    end
+
+    local char = targetPlayer.Character
+    if not char then return end
+
+    local tool = char:FindFirstChildOfClass("Tool")
+    local toolName = tool and tool.Name or "Нет"
+
+    local wornItems = getCustomWornItems(targetPlayer)
+
+    local text = "🎮 Игрок: " .. targetPlayer.Name .. "\n"
+    text = text .. "🔧 В руке: " .. toolName .. "\n\n"
+    text = text .. "🧥 Надето в игре:\n"
+
+    if #wornItems == 0 then
+        text = text .. " - Без изменений"
+    else
+        for _, item in ipairs(wornItems) do
+            text = text .. " - " .. item .. "\n"
+        end
+    end
+
+    listLabel.Text = text
+end)
+
+    else
+-- Удаляет GUI и отключает обновление
+local gui = game.Players.LocalPlayer:FindFirstChild("PlayerGui"):FindFirstChild("InventoryViewer")
+if gui then
+    gui:Destroy()
+end
+
+-- Удаляет соединение обновления, если ты сохранил его глобально (например, в _G.InventoryViewerConnection)
+if _G.InventoryViewerConnection then
+    _G.InventoryViewerConnection:Disconnect()
+    _G.InventoryViewerConnection = nil
+end
+
+print("🛑 InventoryViewer отключен.")
+
+    end
+end)
+
+local Section = Tab:NewSection("❔Other❔")
+
+Section:NewToggle("🏠BaseEsp🏠", "1", function(state)
+    if state then
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local camera = workspace.CurrentCamera
+local localPlayer = Players.LocalPlayer
+
+local modelsToESP = {
+    "LargeWoodenBoxModel", "Workbench1Model", "ToolCupboardModel",
+    "GarageDoorModel", "SoloMetalDoorModel", "MetalDoorModel",
+    "SoloWoodDoorModel", "WoodenDoorModel", "WoodStorageBoxModel",
+    "Workbench2Model", "Workbench3Model", "FurnaceModel",
+    "LargeFurnaceModel", "SoloArmoredDoorModel", "ArmoredDoorModel",
+    "SleepingBagModel"
+}
+
+local espObjects = {}
+
+local function createESPForModel(model)
+    if espObjects[model] then return end
+    
+    local box = Drawing.new("Square")
+    box.Visible = true
+    box.Color = Color3.new(0, 0, 1)
+    box.Thickness = 2
+    box.Filled = false
+    
+    local name = Drawing.new("Text")
+    name.Visible = true
+    name.Color = Color3.new(1, 1, 1)
+    name.Size = 14
+    name.Center = true
+    name.Outline = true
+    name.Text = model.Name
+    
+    espObjects[model] = {box=box, name=name}
+end
+
+local function updateESP()
+    for model, parts in pairs(espObjects) do
+        if model.PrimaryPart then
+            local dist = (localPlayer.Character.HumanoidRootPart.Position - model.PrimaryPart.Position).Magnitude
+            if dist <= 100 then
+                local pos, onScreen = camera:WorldToViewportPoint(model.PrimaryPart.Position)
+                if onScreen then
+                    local size = 100 / pos.Z
+                    parts.box.Position = Vector2.new(pos.X - size/2, pos.Y - size/2)
+                    parts.box.Size = Vector2.new(size, size)
+                    parts.name.Position = Vector2.new(pos.X, pos.Y - size/2 - 15)
+                    parts.box.Visible = true
+                    parts.name.Visible = true
+                else
+                    parts.box.Visible = false
+                    parts.name.Visible = false
+                end
+            else
+                parts.box.Visible = false
+                parts.name.Visible = false
+            end
+        end
+    end
+end
+
+-- Поиск моделей в workspace
+for _, model in pairs(workspace:GetChildren()) do
+    if table.find(modelsToESP, model.Name) then
+        createESPForModel(model)
+    end
+end
+
+workspace.ChildAdded:Connect(function(child)
+    if table.find(modelsToESP, child.Name) then
+        createESPForModel(child)
+    end
+end)
+
+workspace.ChildRemoved:Connect(function(child)
+    if espObjects[child] then
+        espObjects[child].box:Remove()
+        espObjects[child].name:Remove()
+        espObjects[child] = nil
+    end
+end)
+
+RunService.RenderStepped:Connect(updateESP)
+
+    else
+        local RunService = game:GetService("RunService")
+
+-- Очищаем все ESP элементы
+for _, v in pairs(getgc(true)) do
+    if typeof(v) == "table" and rawget(v, "box") and rawget(v, "name") then
+        if typeof(v.box) == "Instance" or typeof(v.box) == "Drawing" then
+            pcall(function() v.box:Remove() end)
+        end
+        if typeof(v.name) == "Instance" or typeof(v.name) == "Drawing" then
+            pcall(function() v.name:Remove() end)
+        end
+    end
+end
+
+-- Отключаем возможный RenderStepped-поток
+for _, conn in pairs(getconnections(RunService.RenderStepped)) do
+    conn:Disable()
+end
+
+    end
+end)
+
+Section:NewToggle("➕Crosshair➕", "1", function(state)
+    if state then
+        local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local camera = workspace.CurrentCamera
+
+local crosshair = Drawing.new("Line")
+crosshair.Color = Color3.new(1, 1, 1)
+crosshair.Thickness = 2
+crosshair.From = Vector2.new(camera.ViewportSize.X / 2 - 10, camera.ViewportSize.Y / 2)
+crosshair.To = Vector2.new(camera.ViewportSize.X / 2 + 10, camera.ViewportSize.Y / 2)
+crosshair.Visible = true
+
+local crosshairV = Drawing.new("Line")
+crosshairV.Color = Color3.new(1, 1, 1)
+crosshairV.Thickness = 2
+crosshairV.From = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2 - 10)
+crosshairV.To = Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2 + 10)
+crosshairV.Visible = true
+
+RunService.RenderStepped:Connect(function()
+    local centerX = camera.ViewportSize.X / 2
+    local centerY = camera.ViewportSize.Y / 2
+    crosshair.From = Vector2.new(centerX - 10, centerY)
+    crosshair.To = Vector2.new(centerX + 10, centerY)
+    crosshairV.From = Vector2.new(centerX, centerY - 10)
+    crosshairV.To = Vector2.new(centerX, centerY + 10)
+end)
+
+    else
+        local RunService = game:GetService("RunService")
+
+-- Удаляем все линии, похожие на Crosshair
+for _, v in pairs(getgc(true)) do
+    if typeof(v) == "Drawing" and v.Visible == true and v.Thickness == 2 and v.Color == Color3.new(1, 1, 1) then
+        pcall(function()
+            v:Remove()
+        end)
+    end
+end
+
+-- Отключаем все возможные RenderStepped соединения
+for _, conn in pairs(getconnections(RunService.RenderStepped)) do
+    conn:Disable()
+end
+
+    end
+end)
+
+-- Слайдер
+Section:NewSlider("🔎Fov🔎", "1", 120, 70, function(s) -- 500 (Макс. значение) | 0 (Мин. значение)
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local desiredFOV = s
+-- Удаляем старое соединение, если оно есть
+if _G.FOVConnection then _G.FOVConnection:Disconnect() end
+
+-- Подключаем обновление каждый кадр (без task.wait)
+_G.FOVConnection = RunService.RenderStepped:Connect(function()
+    Camera.FieldOfView = desiredFOV
+end)
+
+end)
+
+local Tab = Window:NewTab("🔫Combat🔫")
+
+local Section = Tab:NewSection("🎯Aimbot🎯")
+
+Section:NewToggle("😶Aim😶", "1", function(state)
+    if state then
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
+local RunService = game:GetService("RunService")
+
+-- Настройки
+local AimPart = "Head"                -- часть тела для наведения
+shared.AutoAimFOV = shared.AutoAimFOV or 100  -- радиус автонаведения (в пикселях)
+local ShowFOVCircle = true            -- показывать ли FOV круг
+
+local aiming = false
+local target = nil
+
+-- Создаём FOV круг через Drawing API
+local fovCircle = Drawing.new("Circle")
+fovCircle.Visible = ShowFOVCircle
+fovCircle.Radius = shared.AutoAimFOV
+fovCircle.Thickness = 1.5
+fovCircle.Transparency = 0.6
+fovCircle.Color = Color3.fromRGB(0, 255, 255)
+fovCircle.Filled = false
+
+-- Сохраняем глобально для возможности выключения
+_G.AutoAimFOVCircle = fovCircle
+
+-- Функция уведомления на экране (показывается 0.5 секунды)
+local function showNotification(text, color)
+    local notif = Drawing.new("Text")
+    notif.Text = text
+    notif.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2 - 100)
+    notif.Center = true
+    notif.Outline = true
+    notif.Size = 20
+    notif.Color = color or Color3.new(1,1,1)
+    notif.Visible = true
+
+    task.delay(0.5, function()
+        notif:Remove()
+    end)
+end
+
+-- Функция поиска цели, ближайшей к прицелу (центру экрана), попадающей в FOV круг
+local function getClosestTarget()
+    local closest = nil
+    local shortestScreenDistance = math.huge
+
+    local centerScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild(AimPart) then
+            local part = player.Character[AimPart]
+            local screenPoint, onScreen = Camera:WorldToViewportPoint(part.Position)
+            if onScreen then
+                local distScreen = (Vector2.new(screenPoint.X, screenPoint.Y) - centerScreen).Magnitude
+                if distScreen <= shared.AutoAimFOV and distScreen < shortestScreenDistance then
+                    shortestScreenDistance = distScreen
+                    closest = part
+                end
+            end
+        end
+    end
+
+    return closest
+end
+
+-- Обновление FOV круга и наведения камеры
+_G.AutoAimRenderSteppedConn = RunService.RenderStepped:Connect(function()
+    local centerScreen = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    fovCircle.Position = centerScreen
+    fovCircle.Radius = shared.AutoAimFOV
+
+    if aiming and target and target.Parent then
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, target.Position)
+    end
+end)
+
+-- Управление аимом по зажатию и отпусканию ПКМ
+_G.AutoAimButton2DownConn = Mouse.Button2Down:Connect(function()
+    target = getClosestTarget()
+    if target then
+        aiming = true
+        showNotification("🎯 Аим активирован на: " .. target.Parent.Name, Color3.fromRGB(0, 255, 0))
+    else
+        showNotification("❌ Цель не найдена", Color3.fromRGB(255, 0, 0))
+    end
+end)
+
+_G.AutoAimButton2UpConn = Mouse.Button2Up:Connect(function()
+    aiming = false
+    target = nil
+    showNotification("🛑 Аим отключен", Color3.fromRGB(255, 255, 0))
+end)
+
+print("✅ AutoAim загружен — удерживай ПКМ для активации аима")
+
+    else
+        -- Отключаем автоаим
+
+if _G.AutoAimRenderSteppedConn then
+    _G.AutoAimRenderSteppedConn:Disconnect()
+    _G.AutoAimRenderSteppedConn = nil
+end
+
+if _G.AutoAimButton2DownConn then
+    _G.AutoAimButton2DownConn:Disconnect()
+    _G.AutoAimButton2DownConn = nil
+end
+
+if _G.AutoAimButton2UpConn then
+    _G.AutoAimButton2UpConn:Disconnect()
+    _G.AutoAimButton2UpConn = nil
+end
+
+if _G.AutoAimFOVCircle then
+    _G.AutoAimFOVCircle.Visible = false
+    _G.AutoAimFOVCircle:Remove()
+    _G.AutoAimFOVCircle = nil
+end
+
+print("AutoAim выключен.")
+
+    end
+end)
+
+Section:NewSlider("🔎Fov🔎", "SliderInfo", 360, 50, function(s) -- 500 (Макс. значение) | 0 (Мин. значение)
+shared.AutoAimFOV = s
+
+end)
+
+local Tab = Window:NewTab("🥾Movement🥾")
+
+local Section = Tab:NewSection("💨Dash💨")
+
+Section:NewKeybind("💨Dash💨", "1", Enum.KeyCode.F, function()
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+
+local dashCooldown = 1
+local dashSpeed = 200
+local dashDuration = 0.05
+
+_G.DashAvailable = _G.DashAvailable ~= false
+
+-- Получение HumanoidRootPart
+local function getHumanoidRootPart()
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if hrp then return hrp end
+    return character:WaitForChild("HumanoidRootPart")
+end
+
+-- Выполнение дэша
+function performDash()
+    if not _G.DashAvailable then
+        warn("⏳ Дэш ещё не готов")
+        return
+    end
+
+    local humanoidRootPart = getHumanoidRootPart()
+    local direction = camera.CFrame.LookVector.Unit
+    local startTime = tick()
+
+    _G.DashAvailable = false
+    _G.NextDashAt = tick() + dashCooldown -- для GUI
+
+    local dashConn
+    dashConn = RunService.RenderStepped:Connect(function()
+        if tick() - startTime < dashDuration then
+            humanoidRootPart.Velocity = direction * dashSpeed
+        else
+            dashConn:Disconnect()
+            print("✅ Дэш завершён")
+        end
+    end)
+
+    -- Завершаем кулдаун
+    task.delay(dashCooldown, function()
+        _G.DashAvailable = true
+        _G.NextDashAt = nil
+    end)
+end
+
+-- Автовызов при запуске скрипта
+performDash()
+
+
+end)
+
+Section:NewToggle("💨Dash GUI💨", "1", function(state)
+    if state then
+        local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "DashCooldownUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = playerGui
+
+-- Заголовок
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(0, 250, 0, 40)
+title.Position = UDim2.new(0, 20, 0, 20)
+title.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+title.BorderSizePixel = 0
+title.Text = "время до дэша"
+title.Font = Enum.Font.Garamond
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextScaled = true
+title.Parent = screenGui
+
+-- Красный фон
+local progressBackground = Instance.new("Frame")
+progressBackground.Size = UDim2.new(0, 250, 0, 25)
+progressBackground.Position = UDim2.new(0, 20, 0, 70)
+progressBackground.BackgroundColor3 = Color3.fromRGB(200, 0, 0) -- Всегда красный
+progressBackground.BorderSizePixel = 0
+progressBackground.Parent = screenGui
+
+-- Зелёная заполняемая часть
+local progressBar = Instance.new("Frame")
+progressBar.Size = UDim2.new(1, 0, 1, 0)
+progressBar.Position = UDim2.new(0, 0, 0, 0)
+progressBar.BackgroundColor3 = Color3.fromRGB(0, 255, 0) -- Всегда зелёный
+progressBar.BorderSizePixel = 0
+progressBar.ZIndex = 2 -- Над фоном
+progressBar.Parent = progressBackground
+
+-- Время по центру всей полоски (поверх всего)
+local progressText = Instance.new("TextLabel")
+progressText.Size = UDim2.new(1, 0, 1, 0)
+progressText.Position = UDim2.new(0, 0, 0, 0)
+progressText.BackgroundTransparency = 1
+progressText.TextColor3 = Color3.new(1, 1, 1)
+progressText.Font = Enum.Font.Garamond
+progressText.TextScaled = true
+progressText.Text = "0.0"
+progressText.ZIndex = 3 -- Над всем
+progressText.Parent = progressBackground
+
+-- Настройки
+local maxCooldown = 1
+
+-- Обновление GUI
+task.spawn(function()
+    while true do
+        local remaining = 0
+
+        if _G.DashAvailable then
+            remaining = 0
+        else
+            local t = tick()
+            if _G.NextDashAt then
+                remaining = math.clamp(_G.NextDashAt - t, 0, maxCooldown)
+            else
+                remaining = maxCooldown
+            end
+        end
+
+        local ratio = 1 - (remaining / maxCooldown)
+        progressBar.Size = UDim2.new(ratio, 0, 1, 0)
+        progressText.Text = string.format("%.1f", remaining)
+
+        task.wait(0.05)
+    end
+end)
+
+    else
+        local player = game.Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+-- Ждём появления GUI, если его ещё нет
+local gui = playerGui:WaitForChild("DashCooldownUI", 5) -- ждёт до 5 секунд
+
+if gui and gui:IsA("ScreenGui") then
+    gui.Enabled = false
+else
+    warn("❌ GUI 'DashCooldownUI' не найден или не является ScreenGui")
+end
+
+    end
+end)
+
+
+local Section = Tab:NewSection("📷Camera📷")
+
+Section:NewToggle("📷FreeCam📷", "1", function(state)
+    if state then
+        local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local freecamSpeed = 1.5
+local camCFrame = Camera.CFrame
+Camera.CameraType = Enum.CameraType.Scriptable -- Включаем свободную камеру
+
+humanoid.PlatformStand = true -- отключаем управление персонажем
+local rootPosition = rootPart.Position
+
+local keysPressed = {}
+local mouseDelta = Vector2.new(0, 0)
+local sensitivity = 0.2
+local rotationX, rotationY = 0, 0
+
+UserInputService.MouseBehavior = Enum.MouseBehavior.LockCenter
+UserInputService.MouseIconEnabled = false
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    keysPressed[input.KeyCode] = true
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    keysPressed[input.KeyCode] = nil
+end)
+
+UserInputService.InputChanged:Connect(function(input, gameProcessed)
+    if input.UserInputType == Enum.UserInputType.MouseMovement then
+        mouseDelta = Vector2.new(input.Delta.x, input.Delta.y)
+    end
+end)
+
+local running = true
+
+local conn
+conn = RunService.RenderStepped:Connect(function(deltaTime)
+    if not running then return end
+
+    -- Фиксируем персонажа
+    rootPart.CFrame = CFrame.new(rootPosition)
+
+    -- Обновляем поворот камеры по мыши
+    rotationX = rotationX - mouseDelta.y * sensitivity * deltaTime
+    rotationY = rotationY - mouseDelta.x * sensitivity * deltaTime
+
+    rotationX = math.clamp(rotationX, -math.rad(89), math.rad(89))
+
+    local rotationCFrame = CFrame.Angles(rotationX, rotationY, 0)
+
+    camCFrame = CFrame.new(camCFrame.Position) * rotationCFrame
+
+    mouseDelta = Vector2.new(0, 0)
+
+    -- Движение камеры
+    local moveVector = Vector3.new()
+
+    if keysPressed[Enum.KeyCode.W] then
+        moveVector = moveVector + camCFrame.LookVector
+    end
+    if keysPressed[Enum.KeyCode.S] then
+        moveVector = moveVector - camCFrame.LookVector
+    end
+    if keysPressed[Enum.KeyCode.A] then
+        moveVector = moveVector - camCFrame.RightVector
+    end
+    if keysPressed[Enum.KeyCode.D] then
+        moveVector = moveVector + camCFrame.RightVector
+    end
+    if keysPressed[Enum.KeyCode.E] then
+        moveVector = moveVector + Vector3.new(0,1,0)
+    end
+    if keysPressed[Enum.KeyCode.Q] then
+        moveVector = moveVector - Vector3.new(0,1,0)
+    end
+
+    if moveVector.Magnitude > 0 then
+        moveVector = moveVector.Unit * freecamSpeed
+        camCFrame = camCFrame + moveVector * deltaTime * 50
+    end
+
+    Camera.CFrame = camCFrame
+end)
+
+-- Функция для выключения freecam
+function DisableFreecam()
+    running = false
+    Camera.CameraType = Enum.CameraType.Custom
+    humanoid.PlatformStand = false
+    UserInputService.MouseBehavior = Enum.MouseBehavior.Default
+    UserInputService.MouseIconEnabled = true
+    if conn then
+        conn:Disconnect()
+        conn = nil
+    end
+end
+
+-- Делаем функцию глобальной для внешнего вызова
+_G.DisableFreecam = DisableFreecam
+
+    else
+        if _G.DisableFreecam then
+    _G.DisableFreecam()
+end
+    end
+end)
