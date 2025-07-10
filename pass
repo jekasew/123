@@ -1,0 +1,28 @@
+local HttpService = game:GetService("HttpService")
+
+local KEY_LIST_URL = "https://pastebin.com/raw/QxhM9QEV" -- вставь свой Raw Pastebin URL
+
+local function checkKey(key)
+	local success, response = pcall(function()
+		return game:HttpGet(KEY_LIST_URL)
+	end)
+
+	if not success then
+		warn("Could not reach key server.")
+		return false
+	end
+
+	for line in string.gmatch(response, "[^\r\n]+") do
+		if line == key then
+			return true
+		end
+	end
+
+	return false
+end
+
+if checkKey(inputKey) then
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/jekasew/123/refs/heads/main/gaijo%5Bgijoreiojjioeragiojegrjiogoijjoiegijogrejioagreijogijor"))()
+else
+	warn("Invalid key.")
+end
